@@ -35,6 +35,7 @@ class SdrGUI():
         self.sdr.set_n_samples(2**self.tmain.n_samples_log2.get())
         ax = self.tmain.graph.ax[0]
         ax.cla()
+        self.sdr.get_spectrum()
         f, m, _ = self.sdr.plot_spectrum(ax)
         xlim = 4.1 * self.tmain.modulation_freq.get()
         ax.set_xlim(-xlim, xlim)

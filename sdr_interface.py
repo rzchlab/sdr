@@ -70,8 +70,6 @@ class SdrInterface(object):
         orders = np.arange(-max_order, max_order + 1)
         fis = [self._nearest_ind(i * self.modulation_freq, self.freqs) 
                for i in orders]
-        print(fis)
-        print(self.freqs[fis])
         mag = self.magnitude
         mi = [fi - width + np.argmax(mag[fi-width:fi+width]) for fi in fis]
         return np.array([(mi[max_order - i], mi[max_order + i]) 
