@@ -9,7 +9,7 @@ from rzcheasygui import Dialog
 from sdr_interface import RtlSdrInterface
 from sdr_gui import SdrGUI
 
-sdr = RtlSdrInterface(40e6, 2.048e6, 512**2, 30e3)
+sdr = RtlSdrInterface(40e6, 2.048e6, 512**2, 30e3, 5, 1)
 
 hooks = {'get_spectrum': lambda: None}
 
