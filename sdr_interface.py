@@ -256,9 +256,10 @@ if __name__ == '__main__':
     n_samples = 2**21
     modulation_freq = 30e3
     ppk_voltage = 5
+    max_order=3
     sdr = RtlSdrInterface(center_freq=center_freq, sample_freq=sample_freq, 
                           n_samples=n_samples, modulation_freq=modulation_freq,
-                          ppk_voltage=ppk_voltage, max_order = max_order)
+                          ppk_voltage=ppk_voltage, max_order=max_order)
     f, m, _ = sdr.get_spectrum()
     fig, ax = plt.subplots(dpi=100)
     sdr.plot_spectrum(ax, add_peaks=(3, 100))

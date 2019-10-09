@@ -8,13 +8,22 @@ Created on Thu Oct  3 13:53:01 2019
 from rzcheasygui import Dialog
 
 class SdrGUI():
-    def __init__(self, sdr):
+    def __init__(self, sdr, fg, mc):
+        """
+        Main GUI object.
+        Args:
+            sdr: SdrInterface instance
+            fg: function generator instance from instrpyvisa
+            mc: motion control instance from instrpyvisa
+        """
         self.sdr = sdr
+        self.fg = fg
+        self.mc = mc
         self.dmain = Dialog(title="SDR")            
         self.PEAK_WIDTH_SEARCH = 100
 
-        # Main tab
-        self.tmain = self.dmain.tab('main')
+        # SDR tab
+        self.tmain = self.dmain.tab('SDR')
         
         self.tmain.labelbox('Parameters')
         self.tmain.center_freq_Mhz = self.tmain.floatbox('Center Freq (MHz)', 40)
@@ -34,6 +43,10 @@ class SdrGUI():
         self.tmain.labelbox('LDV Output')
         self.tmain.lbl_ldv_d33 = self.tmain.labelbox('d33: 0.0 pm/V')
         self.tmain.lbl_peak_ratios = self.tmain.labelbox('peak ratios: ')
+        
+        # FG tab
+#        self.tfg = self.dmain.tab('SDR')
+#        self.tfg.show_bg = self.tmain.checkbox('Show Background', 0)
                 
         
     def get_bg_spectrum(self):
