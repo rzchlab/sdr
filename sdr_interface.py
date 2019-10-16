@@ -196,6 +196,11 @@ class SdrInterface(object):
         d33 = dis/ampl_v
         
         return total_d33, d33
+    
+    def get_d33_spe_disp(self):
+        """Get d33, speed, displacement"""
+        return (self.get_d33()[0], self.get_sample_speed()[0], 
+                self.get_sample_displacement()[0])
 
     def close(self):
         """Close hardware connection to sdr."""

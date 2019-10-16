@@ -8,7 +8,7 @@ Created on Thu Oct  3 13:53:01 2019
 from rzcheasygui import Dialog
 
 class SdrGUI():
-    def __init__(self, sdr, fg, mc):
+    def __init__(self, sdr, fg, mc, linescan):
         """
         Main GUI object.
         Args:
@@ -19,6 +19,7 @@ class SdrGUI():
         self.sdr = sdr
         self.fg = fg
         self.mc = mc
+        self.linescan = linescan
         self.dmain = Dialog(title="SDR")            
         self.PEAK_WIDTH_SEARCH = 100
 
@@ -72,7 +73,22 @@ class SdrGUI():
         self.tmc.output_on = self.tmc.button('Left', 
                                              self.mc_mover_um(2))
         self.tmc.output_on = self.tmc.button('Right', 
-                                             self.mc_mover_um(2, inv=True))                
+                                             self.mc_mover_um(2, inv=True))
+        # Linescan tab
+        #--------------------
+        self.tls = self.dmain.tab('Linescan')
+        self.tls.labelbox('Parameters')
+        self.tls.step_um = self.tls.floatbox('Step (um)', 10)
+        self.tls.nsteps = self.tls.integerbox('N Steps', 10)
+        self.tls.moveaxis = self.tls.integerbox('Move Axis', 1)  
+        self.tls.labelbox('(y-axis is 1, x-axis is 2)')    
+        self.tls.button('Run Linescan', self.go_linescan)
+        self.tls.rb_labels = ['d33', 'speed', 'disp']
+        self.tls.rb = self.tls.radiobuttons('Plot:',
+                                        self.tls.rb_labels, 
+                                        0, 
+                                        callback=self.update_linescan_plot)
+        self.tls.graph = self.tls.graph()
         
     def get_bg_spectrum(self):
         self.sdr.set_center_freq(int(self.tsdr.center_freq_Mhz.get() * 1e6))
@@ -109,5 +125,19 @@ class SdrGUI():
     def mc_mover_um(self, axis, inv=False):
         sgn = -1 if inv else 1
         return lambda: self.mc.move_um(axis, self.tmc.step_um.get() * sgn)
+    
+    def go_linescan(self):
+        self.linescan.main(step_um=self.tls.step_um.get(),
+                           nsteps=self.tls.nsteps.get(),
+                           moveaxis=self.tls.moveaxis.get())
+        self.update_linescan_plot()
+
+    def update_linescan_plot(self):
+        ax = self.tls.graph.ax[0]
+        ax.cla()
+        df = self.linescan.data
+        col = self.tls.rb_labels[self.tls.rb.get()]
+        ax.plot(df['loc_um'], df[col])
+        ax.figure.canvas.draw()        
         
         
