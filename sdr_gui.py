@@ -8,7 +8,7 @@ Created on Thu Oct  3 13:53:01 2019
 from rzcheasygui import Dialog
 
 class SdrGUI():
-    def __init__(self, sdr, fg, mc, linescan):
+    def __init__(self, sdr, fg, mc, linescan, biassweep):
         """
         Main GUI object.
         Args:
@@ -20,35 +20,37 @@ class SdrGUI():
         self.fg = fg
         self.mc = mc
         self.linescan = linescan
-        self.dmain = Dialog(title="SDR")            
+        self.biassweep = biassweep
+        self.dmain = Dialog(title="SDR")
         self.PEAK_WIDTH_SEARCH = 100
 
-        
         # SDR tab
-        #--------------------
+        # --------------------
         self.tsdr = self.dmain.tab('SDR')
-        
+
         self.tsdr.labelbox('Parameters')
-        self.tsdr.center_freq_Mhz = self.tsdr.floatbox('Center Freq (MHz)', 40)
-        self.tsdr.sample_freq_Mhz = self.tsdr.floatbox('Sample Freq (MHz)', 2.048)
+        self.tsdr.center_freq_Mhz = self.tsdr.floatbox('Center Freq (MHz)', 0)
+        self.tsdr.sample_freq_Mhz = self.tsdr.floatbox(
+                'Sample Freq (MHz)', 2.048)
         self.tsdr.n_samples_log2 = self.tsdr.integerbox('Samples 2^', 18)
-        self.tsdr.modulation_freq = self.tsdr.floatbox('Modulation Freq (kHz)', 30)
+        self.tsdr.modulation_freq = self.tsdr.floatbox(
+                'Modulation Freq (kHz)', 30)
         self.tsdr.ppk_voltage = self.tsdr.floatbox('Voltage (Vpp)', 5)
         self.tsdr.max_order = self.tsdr.integerbox('Max order', 1)
-        
+
         self.tsdr.labelbox('')
         self.tsdr.button('Get Spectrum', self.get_spectrum)
         self.tsdr.button('Collect Background', self.get_bg_spectrum)
         self.tsdr.show_bg = self.tsdr.checkbox('Show Background', 0)
-        
+
         self.tsdr.graph = self.tsdr.graph()
-        
+
         self.tsdr.labelbox('LDV Output')
         self.tsdr.lbl_ldv_d33 = self.tsdr.labelbox('d33: 0.0 pm/V')
         self.tsdr.lbl_peak_ratios = self.tsdr.labelbox('peak ratios: ')
-        
+
         # FG tab
-        #--------------------
+        # --------------------
         self.tfg = self.dmain.tab('FuncGen')
         self.tfg.labelbox('Configure')
         self.tfg.vpp = self.tfg.floatbox('Vpp', 1)
@@ -56,45 +58,58 @@ class SdrGUI():
         self.tfg.freq = self.tfg.floatbox('Freq (kHz)', 30)
         self.tfg.offset = self.tfg.floatbox('Offset (V)', 0)
         self.tfg.output_on = self.tfg.button('Config Sin', self.fg_setup_sin)
-        
+
         self.tfg.labelbox('Output')
         self.tfg.output_on = self.tfg.button('On', fg.outp_on)
         self.tfg.output_off = self.tfg.button('Off', fg.outp_off)
-        
+
         # FG tab
-        #--------------------
+        # --------------------
         self.tmc = self.dmain.tab('Motion')
         self.tmc.labelbox('Configure')
         self.tmc.step_um = self.tmc.floatbox('Step (um)', 30)
-        self.tmc.output_on = self.tmc.button('Up', 
-                                             self.mc_mover_um(1, inv=True))
-        self.tmc.output_on = self.tmc.button('Down', 
-                                             self.mc_mover_um(1))
-        self.tmc.output_on = self.tmc.button('Left', 
-                                             self.mc_mover_um(2))
-        self.tmc.output_on = self.tmc.button('Right', 
-                                             self.mc_mover_um(2, inv=True))
+        self.tmc.output_on = self.tmc.button(
+                'Up', self.mc_mover_um(1, inv=True))
+        self.tmc.output_on = self.tmc.button(
+                'Down', self.mc_mover_um(1))
+        self.tmc.output_on = self.tmc.button(
+                'Left', self.mc_mover_um(2))
+        self.tmc.output_on = self.tmc.button(
+                'Right', self.mc_mover_um(2, inv=True))
         # Linescan tab
-        #--------------------
+        # --------------------
         self.tls = self.dmain.tab('Linescan')
         self.tls.labelbox('Parameters')
         self.tls.step_um = self.tls.floatbox('Step (um)', 10)
         self.tls.nsteps = self.tls.integerbox('N Steps', 10)
-        self.tls.moveaxis = self.tls.integerbox('Move Axis', 1)  
-        self.tls.labelbox('(y-axis is 1, x-axis is 2)')    
+        self.tls.moveaxis = self.tls.integerbox('Move Axis', 1)
+        self.tls.labelbox('(y-axis is 1, x-axis is 2)')
         self.tls.button('Run Linescan', self.go_linescan)
         self.tls.rb_labels = ['d33', 'speed', 'disp']
-        self.tls.rb = self.tls.radiobuttons('Plot:',
-                                        self.tls.rb_labels, 
-                                        0, 
-                                        callback=self.update_linescan_plot)
         self.tls.graph = self.tls.graph()
-        
+        cb = lambda: self.update_plot(self.tls.graph)
+        self.tls.rb = self.tls.radiobuttons(
+                'Plot:', self.tls.rb_labels, 0, callback=cb)
+
+        # Linescan tab
+        # --------------------
+        self.tbs = self.dmain.tab('BiasSweep')
+        self.tbs.labelbox('Parameters')
+        self.tbs.step_v = self.tbs.floatbox('Step (V)', 1)
+        self.tbs.nsteps = self.tbs.integerbox('N Steps/Seg.', 10)
+        self.tbs.labelbox('1 Seg = 1/4 wave')
+        self.tbs.button('Run Bias Sweep', self.go_biassweep)
+        self.tbs.rb_labels = ['d33', 'speed', 'disp']
+        self.tbs.graph = self.tbs.graph()
+        cb = lambda: self.update_plot(self.tbs.graph)
+        self.tbs.rb = self.tbs.radiobuttons(
+                'Plot:', self.tbs.rb_labels, 0, callback=cb)
+
     def get_bg_spectrum(self):
         self.sdr.set_center_freq(int(self.tsdr.center_freq_Mhz.get() * 1e6))
         self.sdr.set_sample_freq(int(self.tsdr.sample_freq_Mhz.get() * 1e6))
         self.sdr.set_n_samples(2**self.tsdr.n_samples_log2.get())
-        self.sdr.get_bg_spectrum()            
+        self.sdr.get_bg_spectrum()
 
     def get_spectrum(self):
         self.sdr.set_modulation_freq(int(self.tsdr.modulation_freq.get() * 1e3))
@@ -103,7 +118,7 @@ class SdrGUI():
         self.sdr.set_n_samples(2**self.tsdr.n_samples_log2.get())
         self.sdr.set_voltage(self.tsdr.ppk_voltage.get())
         self.sdr.set_max_order(self.tsdr.max_order.get())
-        
+
         ax = self.tsdr.graph.ax[0]
         ax.cla()
         self.sdr.get_spectrum()
@@ -121,23 +136,30 @@ class SdrGUI():
         freq = self.tfg.freq.get() * 1000
         offset = self.tfg.offset.get()
         self.fg.setup_sin(freq, vpp, offset)
-        
+
     def mc_mover_um(self, axis, inv=False):
         sgn = -1 if inv else 1
         return lambda: self.mc.move_um(axis, self.tmc.step_um.get() * sgn)
-    
+
     def go_linescan(self):
         self.linescan.main(step_um=self.tls.step_um.get(),
                            nsteps=self.tls.nsteps.get(),
                            moveaxis=self.tls.moveaxis.get())
-        self.update_linescan_plot()
+        self.update_plot(self.tls.graph)
 
-    def update_linescan_plot(self):
-        ax = self.tls.graph.ax[0]
+    def go_biassweep(self):
+        step = self.tbs.step_v.get()
+        nsteps = self.tbs.nsteps.get()
+        points = self.biassweep.triwave(step, nstep, add_final_zero=True)
+        self.biassweep.run(points)
+        self.update_plot(self.tbs.graph)
+
+
+    def update_plot(self, graph, i_ax=0):
+        ax = self.tls.graph.ax[i_ax]
         ax.cla()
         df = self.linescan.data
         col = self.tls.rb_labels[self.tls.rb.get()]
         ax.plot(df['loc_um'], df[col])
-        ax.figure.canvas.draw()        
-        
-        
+        ax.figure.canvas.draw()
+
