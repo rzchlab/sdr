@@ -56,6 +56,15 @@ class BiasSweep(object):
         self.data = outdf
 
     def triwave(self, step, nstep, add_final_zero=True):
+        """
+        Triangle wave points for use as the offsets in a bias sweep.
+
+        Args:
+            step (float): voltage step
+            nstep (int): num steps per segment (1/4 wave). Total wavelength
+                will be 4 * nstep, and +1` if add_final_zero
+            add_final_zero (bool): if true, add a final zero to the wave
+        """
         seg = np.arange(nstep) * step
         half = np.hstack((seg, nstep * step - seg))
         whole = np.hstack((half, -half))
