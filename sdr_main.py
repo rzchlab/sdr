@@ -27,7 +27,7 @@ rm = ResourceManager()
 
 fg = FuncGenAgilent33220(FG_ADDRESS, rm)
 mc = MotionControllerNewportESP300(MC_ADDRESS, rm)
-sdr = RtlSdrInterface(40e6, 2.048e6, 512**2, 30e3, 5, 1)
+sdr = RtlSdrInterface(40e6, 2.048e6, 512**2, 30e3, 1, 1)
 
 linescan = LineScan(sdr, fg, mc)
 biassweep = BiasSweep(sdr, fg)
@@ -37,5 +37,5 @@ biassweep = BiasSweep(sdr, fg)
 ###      MAIN      ###
 ######################
 
-gui = SdrGUI(sdr, fg, mc, linescan, biassweep)
-gui.dmain.show()
+#gui = SdrGUI(sdr, fg, mc, linescan, biassweep)
+#gui.dmain.show()

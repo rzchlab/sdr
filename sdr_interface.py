@@ -209,8 +209,9 @@ class SdrInterface(object):
 class RtlSdrInterface(SdrInterface):
     """Interface to RtlSdr."""
     def __init__(self, center_freq, sample_freq, n_samples, modulation_freq,
-                 ppk_voltage, max_order):
+                 ppk_voltage, max_order, gain_level=0):
         self.sdr = RtlSdr()
+        self.set_gain_level(gain_level)
         super().__init__(center_freq, sample_freq, n_samples, modulation_freq,
              ppk_voltage, max_order)
         
@@ -249,6 +250,14 @@ class RtlSdrInterface(SdrInterface):
         self.time_series = self.sdr.read_samples(self.n_samples)
         return self.time_series
     
+    def set_gain_level(self, gain_level):
+        """
+        Set gain level to value from RtlSdr.valid_gains_db. 
+        `gain_level` indexes this list.
+        """
+        self.sdr.gain = self.sdr.valid_gains_db[gain_level]
+        pass
+    
     
     def close(self):
         """Close hardware connection to sdr."""
@@ -268,6 +277,7 @@ if __name__ == '__main__':
     f, m, _ = sdr.get_spectrum()
     fig, ax = plt.subplots(dpi=100)
     sdr.plot_spectrum(ax, add_peaks=(3, 100))
+    ax.set_xlim((-500, 500))
     plt.show()
     
    

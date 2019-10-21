@@ -6,6 +6,9 @@ Created on Thu Oct  3 13:53:01 2019
 """
 
 from rzcheasygui import Dialog
+import pandas as pd
+from tkinter.filedialog import asksaveasfilename
+import pickle
 
 class SdrGUI():
     def __init__(self, sdr, fg, mc, linescan, biassweep):
@@ -29,14 +32,15 @@ class SdrGUI():
         self.tsdr = self.dmain.tab('SDR')
 
         self.tsdr.labelbox('Parameters')
-        self.tsdr.center_freq_Mhz = self.tsdr.floatbox('Center Freq (MHz)', 0)
+        self.tsdr.center_freq_Mhz = self.tsdr.floatbox('Center Freq (MHz)', 40)
         self.tsdr.sample_freq_Mhz = self.tsdr.floatbox(
                 'Sample Freq (MHz)', 2.048)
         self.tsdr.n_samples_log2 = self.tsdr.integerbox('Samples 2^', 18)
         self.tsdr.modulation_freq = self.tsdr.floatbox(
                 'Modulation Freq (kHz)', 30)
-        self.tsdr.ppk_voltage = self.tsdr.floatbox('Voltage (Vpp)', 5)
+        self.tsdr.ppk_voltage = self.tsdr.floatbox('Voltage (Vpp)', 1)
         self.tsdr.max_order = self.tsdr.integerbox('Max order', 1)
+        self.tsdr.gain_level = self.tsdr.integerbox('Gain Level', 0)
 
         self.tsdr.labelbox('')
         self.tsdr.button('Get Spectrum', self.get_spectrum)
@@ -49,7 +53,7 @@ class SdrGUI():
         self.tsdr.lbl_ldv_d33 = self.tsdr.labelbox('d33: 0.0 pm/V')
         self.tsdr.lbl_peak_ratios = self.tsdr.labelbox('peak ratios: ')
 
-        # FG tab
+        # FuncGen tab
         # --------------------
         self.tfg = self.dmain.tab('FuncGen')
         self.tfg.labelbox('Configure')
@@ -63,7 +67,7 @@ class SdrGUI():
         self.tfg.output_on = self.tfg.button('On', fg.outp_on)
         self.tfg.output_off = self.tfg.button('Off', fg.outp_off)
 
-        # FG tab
+        # Motion Control tab
         # --------------------
         self.tmc = self.dmain.tab('Motion')
         self.tmc.labelbox('Configure')
@@ -76,6 +80,7 @@ class SdrGUI():
                 'Left', self.mc_mover_um(2))
         self.tmc.output_on = self.tmc.button(
                 'Right', self.mc_mover_um(2, inv=True))
+        
         # Linescan tab
         # --------------------
         self.tls = self.dmain.tab('Linescan')
@@ -84,14 +89,16 @@ class SdrGUI():
         self.tls.nsteps = self.tls.integerbox('N Steps', 10)
         self.tls.moveaxis = self.tls.integerbox('Move Axis', 1)
         self.tls.labelbox('(y-axis is 1, x-axis is 2)')
-        self.tls.button('Run Linescan', self.go_linescan)
+        self.tls.button('Run Linescan', self.go_linescan)        
+        self.tls.button(
+                'Save Line Scan', lambda: self.go_save(self.linescan.data))
         self.tls.rb_labels = ['d33', 'speed', 'disp']
         self.tls.graph = self.tls.graph()
-        cb = lambda: self.update_plot(self.tls.graph)
+        cb = lambda: self.update_ls_plot(self.tls.graph)
         self.tls.rb = self.tls.radiobuttons(
                 'Plot:', self.tls.rb_labels, 0, callback=cb)
 
-        # Linescan tab
+        # Bias sweep tab
         # --------------------
         self.tbs = self.dmain.tab('BiasSweep')
         self.tbs.labelbox('Parameters')
@@ -99,9 +106,11 @@ class SdrGUI():
         self.tbs.nsteps = self.tbs.integerbox('N Steps/Seg.', 10)
         self.tbs.labelbox('1 Seg = 1/4 wave')
         self.tbs.button('Run Bias Sweep', self.go_biassweep)
+        self.tbs.button(
+                'Save Bias Sweep', lambda: self.go_save(self.biassweep.data))
         self.tbs.rb_labels = ['d33', 'speed', 'disp']
         self.tbs.graph = self.tbs.graph()
-        cb = lambda: self.update_plot(self.tbs.graph)
+        cb = lambda: self.update_bs_plot(self.tbs.graph)
         self.tbs.rb = self.tbs.radiobuttons(
                 'Plot:', self.tbs.rb_labels, 0, callback=cb)
 
@@ -118,6 +127,7 @@ class SdrGUI():
         self.sdr.set_n_samples(2**self.tsdr.n_samples_log2.get())
         self.sdr.set_voltage(self.tsdr.ppk_voltage.get())
         self.sdr.set_max_order(self.tsdr.max_order.get())
+        self.sdr.set_gain_level(self.tsdr.gain_level.get())
 
         ax = self.tsdr.graph.ax[0]
         ax.cla()
@@ -134,32 +144,59 @@ class SdrGUI():
         """Wrapper for setting up sin output of fg"""
         vpp = self.tfg.vpp.get()/5
         freq = self.tfg.freq.get() * 1000
-        offset = self.tfg.offset.get()
+        offset = self.tfg.offset.get()/5
         self.fg.setup_sin(freq, vpp, offset)
+        self.sdr.set_modulation_freq(freq)
+        self.sdr.set_voltage(vpp)
 
     def mc_mover_um(self, axis, inv=False):
         sgn = -1 if inv else 1
         return lambda: self.mc.move_um(axis, self.tmc.step_um.get() * sgn)
 
     def go_linescan(self):
-        self.linescan.main(step_um=self.tls.step_um.get(),
-                           nsteps=self.tls.nsteps.get(),
-                           moveaxis=self.tls.moveaxis.get())
-        self.update_plot(self.tls.graph)
+        self.linescan.run(
+                step_um=-self.tls.step_um.get(),
+                nsteps=self.tls.nsteps.get(),
+                moveaxis=self.tls.moveaxis.get())
+        self.update_ls_plot(self.tls.graph)
+        
+    def go_save(self, df):
+        filename = asksaveasfilename()
+        df.to_csv(filename, sep='\t', float_format='%.6e', index_label='i')
+        with open(filename+'.p', 'wb') as f:
+            pickle.dump(obj=df, file=f)
+#        pickle.dump(obj=df, file=filename)
+        
 
     def go_biassweep(self):
         step = self.tbs.step_v.get()
         nsteps = self.tbs.nsteps.get()
-        points = self.biassweep.triwave(step, nstep, add_final_zero=True)
+        points = self.biassweep.triwave(step, nsteps, add_final_zero=True)
         self.biassweep.run(points)
-        self.update_plot(self.tbs.graph)
+        self.update_bs_plot(self.tbs.graph)
 
-
-    def update_plot(self, graph, i_ax=0):
-        ax = self.tls.graph.ax[i_ax]
-        ax.cla()
+    def update_ls_plot(self, graph, i_ax=0):
         df = self.linescan.data
-        col = self.tls.rb_labels[self.tls.rb.get()]
-        ax.plot(df['loc_um'], df[col])
-        ax.figure.canvas.draw()
+        icol = self.tls.rb.get()
+        col = self.tls.rb_labels[icol]
+        xlabel = 'Position (um)'
+        xcol = 'loc_um'
+        self.update_plot(graph, i_ax, df, xcol, col, icol, xlabel)
+        
+    def update_bs_plot(self, graph, i_ax=0):
+        df = self.biassweep.data
+        icol = self.tbs.rb.get()
+        col = self.tbs.rb_labels[icol]
+        xcol = 'bias_v'
+        xlabel = 'Bias (V)'
+        self.update_plot(graph, i_ax, df, xcol, col, icol, xlabel)
 
+    def update_plot(self, graph, i_ax, df, xcol, col, icol, xlabel):
+        ax = graph.ax[i_ax]
+        ax.cla()
+        unit_labs = ['pm/V', 'um/s', 'pm']
+        unit_coef = [1e12, 1e6, 1e12]
+        ax.plot(df[xcol] , df[col] * unit_coef[icol])
+        ax.set_ylabel(col + ' ' + unit_labs[icol])
+        ax.set_xlabel(xlabel)
+        ax.figure.canvas.draw()       
