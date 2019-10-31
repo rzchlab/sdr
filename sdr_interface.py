@@ -162,10 +162,8 @@ class SdrInterface(object):
         """
         lambda_hene = 632.8e-9 #hene laser wavelength
         peakratios = self.peak_ratios()
-        beta = 0.5*peakratios
-        mod_freqs = (1+np.arange(len(beta)))*self.modulation_freq
-        dev_freqs = mod_freqs*beta
-        speed = dev_freqs*lambda_hene*0.5
+        mod_freqs = (1 + np.arange(self.max_order)) * self.modulation_freq
+        speed = mod_freqs * lambda_hene * peakratios
         
         return speed
     
@@ -178,8 +176,8 @@ class SdrInterface(object):
         speed = self.get_sample_speed()
         #extra factor of 2pi comes from velocity integration, while in
         #get_sample_speed, only a ratio of frequencies was needed
-        mod_freqs = 2*np.pi*(1+np.arange(len(speed)))*self.modulation_freq
-        displacement = speed/(mod_freqs)
+        mod_freqs = (1 + np.arange(len(speed))) * self.modulation_freq
+        displacement = speed/(2*np.pi*mod_freqs)
         
         return displacement
         
@@ -189,11 +187,11 @@ class SdrInterface(object):
         Returns total d33, and an array of d33 values from individual harmonics
         """
         dis = self.get_sample_displacement()
-        ampl_v = self.ppk_voltage/2.0
-        rms_v = ampl_v/(np.sqrt(2.0))
-        rms_dis = np.sqrt(0.5*np.sum(dis**2))
-        total_d33 = rms_dis/rms_v
-        d33 = dis/ampl_v
+        ampl_v = self.ppk_voltage / 2
+        rms_v = ampl_v / np.sqrt(2)
+        rms_dis = np.sqrt(np.sum(dis**2) / 2)
+        total_d33 = rms_dis / rms_v
+        d33 = dis / ampl_v
         
         return total_d33, d33
     
@@ -201,10 +199,57 @@ class SdrInterface(object):
         """Get d33, speed, displacement"""
         return (self.get_d33()[0], self.get_sample_speed()[0], 
                 self.get_sample_displacement()[0])
+        
+        ####NEEDS TESTING####
+    def get_phase(self):
+        """Calculates the phase of the absolute phase of the velocity
+        
+        returns array of phase of each harmonic """
+        ipeaks = self.find_peaks()
+        theta = self.phase[ipeaks]
+        theta_tot = np.abs(theta[:,0]-theta[:,1])%np.pi
+        
+        return 0.5*theta_tot
+    
+            ####NEEDS TESTING####
+    def check_phase(self):
+        """Checks that the phases are centered around the phase of the center
+        peak. 
+        
+        returns list of of distances of phase, for each harmonic. The closer to
+        zero, the better"""
+        ipeaks = self.find_peaks()
+        theta = self.phase[ipeaks]
+        theta_tot = np.abs(theta[:,0]+theta[:,1])%np.pi
+        
+        return 0.5*(theta_tot-theta_tot[0])
 
+            ####NEEDS TESTING####
+    def check_mag(self):
+        """Checks that the height of left and right peaks are the same
+        
+        returns list of peak height differences (as a fraction).
+        The closer to zero, the better"""
+        
+        ipeaks = self.find_peaks()
+        heights = self.magnitude(ipeaks)
+        diffs = np.abs(heights[:,0]-heights[:,1])/np.min(heights[:,0],heights[:,1])
+        
+        return diffs
+    
+                ####NEEDS FINISHING AND TESTING####
+    def check_point(self):
+        """Checks that the peaks are above the noise floor
+        
+        returns list of heights above the noise floor"""
+        
+        #not done obviously, use histogram of points to determine if peak is
+        #above noise floor or not
+        
     def close(self):
         """Close hardware connection to sdr."""
         pass
+
 
 class RtlSdrInterface(SdrInterface):
     """Interface to RtlSdr."""

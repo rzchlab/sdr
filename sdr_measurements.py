@@ -8,7 +8,6 @@ Created on Mon Oct 14 16:19:15 2019
 import pandas as pd
 import numpy as np
 
-
 class BiasSweep(object):
     def __init__(self, sdr, fg):
         """
@@ -72,6 +71,53 @@ class BiasSweep(object):
             whole = np.hstack((whole, [0]))
         return whole
 
+class BiasSweepWithCV(BiasSweep):
+    def __init__(self, sdr, fg, lia):
+        """
+        Do a bias sweep sdr measurement
+
+        Args:
+            sdr (SdrInterface)
+            fg (FuncGen)
+        """
+        self.sdr = sdr
+        self.fg = fg
+        self.lia = lia
+        # Don't hardcode these in case sdr.max_order changes
+        peakcols = ['peak%d' % (i + 1) for i in range(self.sdr.max_order)]
+        self.cols = ['bias_v', 'd33', 'speed', 'disp', 'r', 'theta']
+        self.data = pd.DataFrame(columns=self.cols + peakcols)
+
+    def run(self, bias_voltages, back_to_zero=True):
+        """
+        Run a bias sweep measurement.
+
+        Args:
+            bias_voltages (list): List of the bias voltages to
+                sweep through. The values are divided by 5 to account
+                for the gain of the amplifier.
+            back_to_zero (bool): If true, return bias to zero V 
+                when sweep completed.
+        """
+        data = []
+        for bv in bias_voltages:
+            self.fg.offset(bv / 5)
+
+            # Measure
+            self.sdr.get_spectrum()
+            r, theta = self.lia.rtheta()
+            d33, speed, disp = self.sdr.get_d33_spe_disp()
+            peakratios = self.sdr.peak_ratios()
+            data.append([bv, d33, speed, disp, r, theta, *peakratios])
+
+        # Return to starting postion
+        if back_to_zero:
+            self.fg.offset(0)
+
+        peakcols = ['peak%d' % (i + 1) for i in range(self.sdr.max_order)]
+        self.data = data
+        outdf = pd.DataFrame(data=np.array(data), columns=self.cols + peakcols)
+        self.data = outdf
 
 class LineScan(object):
     def __init__(self, sdr, fg, mc):
