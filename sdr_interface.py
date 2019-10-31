@@ -129,6 +129,7 @@ class SdrInterface(object):
         if add_peaks:
             ipeaks = self.find_peaks().flatten()
             ax.plot(self.freqs[ipeaks]/1e3, m_db[ipeaks], 'r*')
+            ax.hlines(np.median(m_db), -xlim, xlim, color='k', zorder=5)
         if add_labels:
             ax.set_xlabel('f (kHz)')
             ax.set_ylabel('dB')
@@ -138,7 +139,7 @@ class SdrInterface(object):
 
         return self.freqs, self.magnitude, self.phase
     
-    def peak_ratios(self, avg_posneg=True):
+    def peak_ratios(self, avg_posneg=True, subtract_median=True):
         """
         Find ratio of ith peak to 0th order peak.
         kwargs are passed to find peaks, so max_order=3 and width=100.
@@ -147,8 +148,12 @@ class SdrInterface(object):
         Returns ((peak-1/peak0, peak1/peak0), ...) if avg_posneg = false.
         """
         ipeaks = self.find_peaks()
-        peak0 = self.magnitude[ipeaks[0][0]]
-        peakratios = self.magnitude[ipeaks[1:]] / peak0
+        if subtract_median:
+            baseline = np.median(self.magnitude)
+        else:
+            baseline = 0
+        peak0 = self.magnitude[ipeaks[0][0]] - baseline
+        peakratios = (self.magnitude[ipeaks[1:]] - baseline)/ peak0
         if avg_posneg:
             return np.mean(peakratios, axis=1)
         else:
